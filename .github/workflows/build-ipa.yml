@@ -1,0 +1,38 @@
+name: Build Goose IPA
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust iOS target
+        run: |
+          rustup target add aarch64-apple-ios
+          PLATFORM_NAME=iphoneos CURRENT_ARCH=arm64 ./Scripts/build_ios_rust.sh
+
+      - name: Build Unsigned App
+        run: |
+          xcodebuild -project GooseSwift.xcodeproj \
+            -scheme GooseSwift \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build_output \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -r build_output/Build/Products/Release-iphoneos/GooseSwift.app Payload/
+          zip -r Goose.ipa Payload
+
+      - name: Upload Goose.ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: Goose-IPA
+          path: Goose.ipa
